@@ -34,7 +34,7 @@ data <- read.csv("pml-training.csv", na.strings=c("NA","","#DIV/0!"), strip.whit
 
 
 ####2.3 Data Processing:
-To prepare the data, I remove the seven first variables that I think are not useful for modeling, then I remove all variables that have more than 50% of missing observations.
+To prepare the data, I removed the seven first variables that I think are not useful for modeling, then I removed all variables that have more than 50% of missing observations.
 
 ```{r, warning=FALSE, message=FALSE}
 data <- subset( data, select = -c(X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, 
@@ -114,7 +114,8 @@ confusionMatrix <- confusionMatrix(prediction, testing$classe)
 confusionMatrix
 ```
 
-On the testiong dataset the Accuracy of the "rf" model is 0.992 and the 95% confidence interval is (0.99, 0.994)
+**On the testing dataset the Accuracy of the "rf" model is 0.992 and the 95% confidence interval is (0.99, 0.994)**
+**It is expected that the Model will have correct classification 99.2% of the time, so the misclassification rate is about (1-99.2%) = 0.8%.**
 
 ####4.2 Variable Importance
 
