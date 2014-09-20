@@ -1,0 +1,137 @@
+
+### Practical Machine Learning : Course Project
+
+
+###1. Summary
+
+For the purpose of human activity recognition, researchers asked six young health participants to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions classes: 
+    A : Exactly according to the specification
+    B : Throwing the elbows to the front 
+    C: Lifting the dumbbell only halfway
+    D: Lowering the dumbbell only halfway
+    E: Throwing the hips to the front
+
+The goal of this analysis is to predict the manner in which the participants did the exercise.
+
+###2. Preparatory step
+
+####2.1 Load the libraries:
+
+```{r, warning=FALSE, message=FALSE}
+library(plyr)
+library(gbm)
+library(randomForest)
+library(caret)
+library(doParallel)
+```
+
+
+####2.2 Read the data:
+
+```{r, warning=FALSE, message=FALSE}
+data <- read.csv("pml-training.csv", na.strings=c("NA","","#DIV/0!"), strip.white=TRUE)
+```
+
+
+####2.3 Data Processing:
+To prepare the data, I remove the seven first variables that I think are not useful for modeling, then I remove all variables that have more than 50% of missing observations.
+
+```{r, warning=FALSE, message=FALSE}
+data <- subset( data, select = -c(X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, 
+                                  cvtd_timestamp, new_window, num_window ) )
+data2 <- data[, colMeans(is.na(data)) <= .50]
+
+set.seed(123)
+inTrain  <- createDataPartition(y=data2$classe, p=0.7, list=FALSE)
+training <- data2[inTrain,]
+testing  <- data2[-inTrain,]
+
+```
+
+
+###3. modeling
+
+####3.1 Multicore training:
+To reduce computing time I'll create a cluster with all available CPU's, this cluster will be used by the caret package through the allowParallel option. 
+
+```{r, warning=FALSE, message=FALSE}
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+cl
+```
+
+I'll try both of the Boosting and the Random Forest algorithms, then I'll score the submission test data with the best one in terms of accuracy. 
+Cross validation is used to choose the best model from each algorithm.
+
+####3.2 Boosting with trees (gbm):
+
+```{r, warning=FALSE, message=FALSE}
+fitControl <- trainControl( method = "cv", number = 5, allowParallel=TRUE)
+set.seed(456)
+gbmModel <- train(classe ~ ., data = training, method = "gbm", trControl = fitControl,
+                  verbose = FALSE)
+gbmModel
+```
+
+####3.2.1 Plotting the Model
+
+```{r, warning=FALSE, message=FALSE}
+trellis.par.set(caretTheme())
+plot(gbmModel)
+```
+
+As we can see from the plot above the best GBM model take 150 trees and depth = 3.
+The best "gbm" model have Accuracy = 1 and Accuracy SD = 0.006.
+
+
+####3.3 Random Forests (rf):
+
+```{r, warning=FALSE, message=FALSE }
+fitControl <- trainControl( method = "cv", number = 5, allowParallel=TRUE)
+set.seed(456)
+rfModel <- train(classe ~ ., data=training, method="rf", trControl=fitControl)
+rfModel
+```
+
+####3.2.1 Plotting the Model
+
+```{r, warning=FALSE, message=FALSE}
+trellis.par.set(caretTheme())
+plot(rfModel)
+```
+
+The best "rf" model have Accuracy = 1 and Accuracy SD = 0.002.
+
+For the next steps I'll use the Random Forest Model because of Accuracy Standard Deviation 
+
+###4. Final Model : Random Forests (rf):
+
+####4.1 Out-of-Sample Error
+
+```{r, warning=FALSE, message=FALSE}
+prediction <- predict(rfModel, testing)
+confusionMatrix <- confusionMatrix(prediction, testing$classe)
+confusionMatrix
+```
+
+On the testiong dataset the Accuracy of the "rf" model is 0.992 and the 95% confidence interval is (0.99, 0.994)
+
+####4.2 Variable Importance
+
+```{r, warning=FALSE, message=FALSE}
+plot(varImp(rfModel), top = 10)
+```
+
+As we can see from the plot above the most important variable for the Random Forest Model is the "roll_best"  followed by "pitch_forearm" when this variable have 60% of the importance of the "roll_best" .
+
+###5. Predicting values for the project submission
+
+```{r, warning=FALSE}
+submission <- read.csv("pml-testing.csv", na.strings=c("NA","","#DIV/0!"),  strip.white=T)
+predict(rfModel, newdata=submission)
+```
+
+### References
+* Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+* [Caret package](http://topepo.github.io/caret/training.html)
+
